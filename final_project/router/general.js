@@ -28,24 +28,47 @@ public_users.post("/register", (req, res) => {
   });
 
 // Get the book list available in the shop
-public_users.get('/',function (req, res) {
-  //Write your code here
-  jsonBooks = JSON.stringify(books)
 
-  return res.status(200).json(jsonBooks);
+public_users.get('/', function (req, res) {
+  
+  // Wrap the synchronous books object in a Promise to simulate async work
+  const getBooks = new Promise((resolve, reject) => {
+    try {
+      resolve(books);
+    } catch (err) {
+      reject(err);
+    }
+  });
+
+  getBooks
+    .then((allBooks) => res.status(200).json(allBooks))
+    .catch((err) => res.status(500).json({ message: err.message || "Failed to fetch books" }));
 });
 
-// Get book details based on ISBN
-public_users.get('/isbn/:isbn',function (req, res) {
-    const params = req.params.isbn;
-    const book = books[params];
 
+// Get book details based on ISBN
+public_users.get('/isbn/:isbn', function (req, res) {
+  const isbn = req.params.isbn;
+
+  // Create a Promise to simulate async data fetching
+  const getBookByISBN = new Promise((resolve, reject) => {
+    const book = books[isbn];
     if (book) {
-        return res.status(200).json(book);
-      } else {
-        return res.status(404).json({ message: "Book not found" });
-      }
+      resolve(book); // success = send book data
+    } else {
+      reject(new Error("Book not found")); //  failure = trigger .catch()
+    }
+  });
+
+  // Handle success or error using .then() and .catch()
+  getBookByISBN
+    .then((book) => {
+      return res.status(200).json(book);
+    })
+    .catch((err) => {
+      return res.status(404).json({ message: err.message });
     });
+});
 
   
 // Get book details based on author
@@ -60,28 +83,35 @@ const normalize = (str) =>
     .replace(/[\u0300-\u036f]/g, '')  // remove diacritics
     .replace(/[^a-z0-9]/g, '');       // remove spaces, punctuation, underscores, etc.
 
-// Get book details based on author (forEach version)
+// Get book details based on author
 public_users.get('/author/:author', function (req, res) {
   const authorParam = decodeURIComponent(req.params.author);
   const normalizedParam = normalize(authorParam);
 
-  const keys = Object.keys(books);
-  let matchingBooks = [];
+  // Create a Promise to simulate async operation
+  const getBooksByAuthor = new Promise((resolve, reject) => {
+    const keys = Object.keys(books);
+    const matchingBooks = [];
 
-  keys.forEach((key) => {
-    const book = books[key];
-    const normalizedAuthor = normalize(book.author);
+    keys.forEach((key) => {
+      const book = books[key];
+      const normalizedAuthor = normalize(book.author);
+      if (normalizedAuthor === normalizedParam) {
+        matchingBooks.push({ isbn: key, ...book });
+      }
+    });
 
-    if (normalizedAuthor === normalizedParam) {
-      matchingBooks.push({ isbn: key, ...book });
+    if (matchingBooks.length > 0) {
+      resolve(matchingBooks);
+    } else {
+      reject(new Error("No books found for this author"));
     }
   });
 
-  if (matchingBooks.length > 0) {
-    return res.status(200).json(matchingBooks);
-  } else {
-    return res.status(404).json({ message: "No books found for this author" });
-  }
+  // Handle the Promise
+  getBooksByAuthor
+    .then((matchingBooks) => res.status(200).json(matchingBooks))
+    .catch((err) => res.status(404).json({ message: err.message }));
 });
 
 // Get all books based on title
@@ -89,38 +119,35 @@ public_users.get('/title/:title', function (req, res) {
     const titleParam = decodeURIComponent(req.params.title);
     const normalizedParam = normalize(titleParam);
   
-    const keys = Object.keys(books);
-    const matchingBooks = [];
+    // Create a Promise to simulate async behavior
+    const getBooksByTitle = new Promise((resolve, reject) => {
+      const keys = Object.keys(books);
+      const matchingBooks = [];
   
-    keys.forEach((key) => {
-      const book = books[key];
-      const normalizedTitle = normalize(book.title);
-      if (normalizedTitle === normalizedParam) {
-        matchingBooks.push({ isbn: key, ...book });
+      keys.forEach((key) => {
+        const book = books[key];
+        const normalizedTitle = normalize(book.title);
+  
+        if (normalizedTitle === normalizedParam) {
+          matchingBooks.push({ isbn: key, ...book });
+        }
+      });
+  
+      if (matchingBooks.length > 0) {
+        resolve(matchingBooks);
+      } else {
+        reject(new Error("No books found with this title"));
       }
     });
   
-    if (matchingBooks.length > 0) {
-      return res.status(200).json(matchingBooks);
-    } else {
-      return res.status(404).json({ message: "No books found with this title" });
-    }
+    // Handle the Promise
+    getBooksByTitle
+      .then((matchingBooks) => {
+        return res.status(200).json(matchingBooks);
+      })
+      .catch((err) => {
+        return res.status(404).json({ message: err.message });
+      });
   });
-
-//  Get book review
-public_users.get('/review/:isbn', function (req, res) {
-  const isbn = req.params.isbn; // extract ISBN from URL
-
-  // Find the book by ISBN
-  const book = books[isbn];
-
-  if (book) {
-    // Return the reviews object (can be empty)
-    return res.status(200).json(book.reviews);
-  } else {
-    // ISBN not found
-    return res.status(404).json({ message: "Book not found" });
-  }
-});
 
 module.exports.general = public_users;

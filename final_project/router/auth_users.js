@@ -78,6 +78,42 @@ regd_users.put("/auth/review/:isbn", (req, res) => {
     });
   });
 
+// Delete a book review (only the logged-in user's own review)
+regd_users.delete("/auth/review/:isbn", (req, res) => {
+  const isbn = req.params.isbn;
+
+  // Retrieve username from session (or JWT payload as fallback)
+  const username =
+    (req.session && req.session.authorization && req.session.authorization.username) ||
+    (req.user && req.user.username);
+
+  // Ensure user is authenticated
+  if (!username) {
+    return res.status(401).json({ message: "Unauthorized: please log in" });
+  }
+
+  // Check that the book exists
+  const book = books[isbn];
+  if (!book) {
+    return res.status(404).json({ message: "Book not found" });
+  }
+
+  // If the user has a review on this book, delete it
+  if (book.reviews && book.reviews[username]) {
+    delete book.reviews[username];
+    return res.status(200).json({
+      message: "Review deleted successfully",
+      isbn,
+      remainingReviews: book.reviews
+    });
+  } else {
+    return res.status(404).json({
+      message: "No review found for this user on the specified book"
+    });
+  }
+});
+
+
 module.exports.authenticated = regd_users;
 module.exports.isValid = isValid;
 module.exports.users = users;
